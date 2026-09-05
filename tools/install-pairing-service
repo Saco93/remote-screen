@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+set -euo pipefail
+script_path=$(readlink -f -- "$0")
+project_dir=$(dirname -- "$(dirname -- "$script_path")")
+if [[ $(id -u) != 0 ]]; then
+    exec pkexec /bin/bash "$script_path" "$(id -u)"
+fi
+pairing_uid=${1:?Specify the desktop user numeric UID}
+[[ "$pairing_uid" =~ ^[0-9]+$ && "$pairing_uid" -gt 0 ]] || { echo 'Invalid desktop UID' >&2; exit 1; }
+getent passwd "$pairing_uid" >/dev/null
+helper="$project_dir/target/release/remote-screen-p2p-helper"
+[[ -x "$helper" ]] || { echo 'Build first: cargo build --release --bins' >&2; exit 1; }
+install -d -m 0755 /usr/local/libexec
+install -m 0755 "$helper" /usr/local/libexec/remote-screen-p2p-helper.new
+mv -f /usr/local/libexec/remote-screen-p2p-helper.new /usr/local/libexec/remote-screen-p2p-helper
+sed "s/@UID@/$pairing_uid/g" "$project_dir/tools/systemd/remote-screen-p2p.socket" > /etc/systemd/system/remote-screen-p2p.socket
+chmod 0644 /etc/systemd/system/remote-screen-p2p.socket
+install -m 0644 "$project_dir/tools/systemd/remote-screen-p2p@.service" /etc/systemd/system/remote-screen-p2p@.service
+systemctl daemon-reload
+systemctl enable --now remote-screen-p2p.socket
+printf 'Persistent pairing socket installed for UID %s. Credentials remain root-only.\n' "$pairing_uid"

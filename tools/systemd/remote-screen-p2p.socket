@@ -1,0 +1,13 @@
+[Unit]
+Description=Remote Screen persistent Wi-Fi Direct pairing socket
+
+[Socket]
+ListenStream=/run/remote-screen-p2p.sock
+SocketMode=0600
+SocketUser=@UID@
+Accept=yes
+RemoveOnStop=yes
+MaxConnections=4
+
+[Install]
+WantedBy=sockets.target

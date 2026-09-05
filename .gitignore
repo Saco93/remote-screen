@@ -1,0 +1,8 @@
+/target/
+/.state/
+/remote-screen
+/.agents/
+/.codex/
+.env
+.env.*
+*.log

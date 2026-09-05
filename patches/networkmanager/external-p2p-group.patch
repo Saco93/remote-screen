@@ -1,0 +1,54 @@
+--- a/src/core/devices/wifi/nm-device-wifi-p2p.c
++++ b/src/core/devices/wifi/nm-device-wifi-p2p.c
+@@ -832,6 +832,42 @@
+     check_group_iface_ready(self);
+ }
+ 
++/* External groups have no NMDevice owner. Keep their wrapper alive until
++ * wpa_supplicant removes the interface; dropping it earlier calls RemoveInterface. */
++static void
++supplicant_external_group_state_cb(NMSupplicantInterface *iface,
++                                   int                    new_state,
++                                   int                    old_state,
++                                   int                    disconnect_reason,
++                                   gpointer               user_data)
++{
++    if (new_state != NM_SUPPLICANT_INTERFACE_STATE_DOWN)
++        return;
++
++    g_signal_handlers_disconnect_by_func(iface, supplicant_external_group_state_cb, NULL);
++    g_object_unref(iface);
++}
++
++static void
++supplicant_external_group_retain(NMSupplicantInterface *iface)
++{
++    if (nm_supplicant_interface_get_state(iface) == NM_SUPPLICANT_INTERFACE_STATE_DOWN
++        || g_signal_handler_find(iface,
++                                 G_SIGNAL_MATCH_FUNC,
++                                 0,
++                                 0,
++                                 NULL,
++                                 supplicant_external_group_state_cb,
++                                 NULL))
++        return;
++
++    g_object_ref(iface);
++    g_signal_connect(iface,
++                     NM_SUPPLICANT_INTERFACE_STATE,
++                     G_CALLBACK(supplicant_external_group_state_cb),
++                     NULL);
++}
++
+ static void
+ supplicant_iface_group_started_cb(NMSupplicantInterface *iface,
+                                   NMSupplicantInterface *group_iface,
+@@ -846,6 +882,8 @@
+         _LOGW(LOGD_DEVICE | LOGD_WIFI,
+               "P2P: WPA supplicant notified a group start but we are not trying to connect! "
+               "Ignoring the event.");
++        if (group_iface != iface)
++            supplicant_external_group_retain(group_iface);
+         return;
+     }
+ 

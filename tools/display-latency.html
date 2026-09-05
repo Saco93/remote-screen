@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="zh-CN">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>投屏显示时差测量</title>
+<style>
+  :root { color-scheme: dark; font-family: system-ui, sans-serif; }
+  * { box-sizing: border-box; }
+  body { margin: 0; min-height: 100vh; background: #181818; color: #eee; display: grid; place-items: center; }
+  main { text-align: center; width: 96vw; }
+  h1 { font-size: 3vw; font-weight: 500; margin: 0 0 3vh; }
+  #clock { font: 600 15vw/1.15 ui-monospace, "DejaVu Sans Mono", monospace; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  #frame { font: 3vw/1.6 ui-monospace, monospace; color: #bbb; }
+  #hidden { color: #ffc66d; height: 1.5em; }
+  p { color: #aaa; font-size: clamp(14px, 1.5vw, 24px); margin: 2vh 0 0; }
+  button { margin-top: 2vh; background: #303030; color: #eee; border: 1px solid #777; border-radius: 4px; padding: 8px 16px; font: inherit; cursor: pointer; }
+  :fullscreen button { display: none; }
+</style>
+<main>
+  <h1>投屏显示时差 · <span id="label"></span></h1>
+  <div id="clock">000.000</div>
+  <div id="frame">FRAME 000000</div>
+  <p>同一录像帧内：笔记本读数 − 电视读数 = 显示时差</p>
+  <p>读数单位为秒，每 1000 秒归零。相机同时拍到两块屏幕，尽量让两处数字位于同一高度。</p>
+  <p id="hidden"></p>
+  <button id="fullscreen">全屏显示</button>
+</main>
+<script>
+  'use strict';
+  const params = new URLSearchParams(location.search);
+  const lead = params.get('pcr');
+  const codec = params.get('codec');
+  const audioLabel = params.get('audio') === 'off' ? '无音频 · ' : '';
+  const codecLabel = ['HEVC', 'H.264'].includes(codec) ? `${codec} · ` : '';
+  document.querySelector('#label').textContent = ['0', '25', '50', '125'].includes(lead)
+    ? `${codecLabel}${audioLabel}PCR 预留 ${lead}ms（记录标签）` : '未标注参数';
+  const clock = document.querySelector('#clock');
+  const frame = document.querySelector('#frame');
+  const warning = document.querySelector('#hidden');
+  let count = 0;
+  function tick() {
+    const milliseconds = Math.floor(performance.now()) % 1000000;
+    clock.textContent = `${String(Math.floor(milliseconds / 1000)).padStart(3, '0')}.${String(milliseconds % 1000).padStart(3, '0')}`;
+    frame.textContent = `FRAME ${String(++count).padStart(6, '0')}`;
+    requestAnimationFrame(tick);
+  }
+  document.addEventListener('visibilitychange', () => {
+    warning.textContent = document.hidden ? '页面已隐藏，停止采样；返回后等待画面稳定再录像。' : '';
+  });
+  document.querySelector('#fullscreen').addEventListener('click', () => {
+    document.documentElement.requestFullscreen().catch(() => {
+      warning.textContent = '可使用浏览器 F11 进入全屏。';
+    });
+  });
+  requestAnimationFrame(tick);
+</script>
+</html>

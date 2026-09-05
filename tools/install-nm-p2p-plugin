@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+set -euo pipefail
+[[ $(id -u) == 0 ]] || { echo 'Run using sudo.' >&2; exit 1; }
+[[ $(/usr/bin/NetworkManager --version) == 1.58.1-1 ]] || { echo 'NetworkManager version differs; refusing.' >&2; exit 1; }
+project_dir=$(dirname -- "$(dirname -- "$(readlink -f -- "$0")")")
+plugin=/usr/lib/NetworkManager/1.58.1-1/libnm-device-plugin-wifi.so
+backup=/var/lib/remote-screen/nm-plugin-backup-1.58.1-1.so
+stock=554d203e1db4cba29b92062a4c3c33a0b8b7fe9b994d1a537a5ab03c3d9596d4
+patched=f8a653666a2b907d06ed5ec4a10868bf37539fc86979e4be42b075dc2c682ef9
+check() { [[ $(sha256sum -- "$1" | cut -d ' ' -f 1) == "$2" ]]; }
+if [[ ${1:-install} == restore ]]; then
+    check "$backup" "$stock"
+    check "$plugin" "$patched"
+    install -o root -g root -m 0755 "$backup" "$plugin.new"
+    mv -f -- "$plugin.new" "$plugin"
+    systemctl restart NetworkManager
+    echo 'Original Wi-Fi plugin restored.'
+    exit 0
+fi
+[[ ${1:-install} == install ]]
+candidate="$project_dir/.state/nm-build/build/src/core/devices/wifi/libnm-device-plugin-wifi.so"
+check "$plugin" "$stock"
+check "$candidate" "$patched"
+install -d -o root -g root -m 0700 /var/lib/remote-screen
+if [[ -e "$backup" ]]; then check "$backup" "$stock"; else install -o root -g root -m 0600 "$plugin" "$backup"; fi
+install -o root -g root -m 0755 "$candidate" "$plugin.new"
+check "$plugin.new" "$patched"
+mv -f -- "$plugin.new" "$plugin"
+if ! systemctl restart NetworkManager; then
+    install -o root -g root -m 0755 "$backup" "$plugin.new"
+    mv -f -- "$plugin.new" "$plugin"
+    systemctl restart NetworkManager
+    echo 'Restart failed; original plugin restored.' >&2
+    exit 1
+fi
+echo 'Patched Wi-Fi plugin installed; NetworkManager restarted.'
