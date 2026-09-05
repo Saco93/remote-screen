@@ -107,4 +107,4 @@ PCR 播放预留默认采用50ms：`./remote-screen mirror` 等同于显式指�
 
 ## License
 
-项目代码采用 [MIT License](LICENSE)，与 [Saco93/voice-input](https://github.com/Saco93/voice-input) 一致。NetworkManager 补丁采用 LGPL-2.1-or-later，详见 [补丁说明](patches/networkmanager/README.md)。
+项目代码采用 [MIT License](LICENSE)。NetworkManager 补丁采用 LGPL-2.1-or-later，详见 [补丁说明](patches/networkmanager/README.md)。
